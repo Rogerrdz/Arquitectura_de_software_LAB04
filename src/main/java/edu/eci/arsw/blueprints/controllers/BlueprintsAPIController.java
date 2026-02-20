@@ -41,7 +41,7 @@ public class BlueprintsAPIController {
         try {
             return ResponseEntity.ok(new ApiResponse<>(200, "Success", services.getBlueprintsByAuthor(author)));
         } catch (BlueprintNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(404, e.getMessage(), null));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(404, "Blueprint not found for author: " + author, null));
         }
     }
 
@@ -51,7 +51,7 @@ public class BlueprintsAPIController {
         try {
             return ResponseEntity.ok(new ApiResponse<>(200, "Success", services.getBlueprint(author, bpname)));
         } catch (BlueprintNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(404, e.getMessage(), null));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(404, "Blueprint not found for author: " + author + " and name: " + bpname, null));
         }
     }
 
@@ -63,7 +63,7 @@ public class BlueprintsAPIController {
             services.addNewBlueprint(bp);
             return ResponseEntity.status(HttpStatus.CREATED).body(new ApiResponse<>(201, "Blueprint created", null));
         } catch (BlueprintPersistenceException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>(400, e.getMessage(), null));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>(400, "Invalid Data", null));
         }
     }
 
@@ -75,7 +75,7 @@ public class BlueprintsAPIController {
             services.addPoint(author, bpname, p.x(), p.y());
             return ResponseEntity.status(HttpStatus.ACCEPTED).body(new ApiResponse<>(202, "Point added", null));
         } catch (BlueprintNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(404, e.getMessage(), null));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(404, "Invalid Data", null));
         }
     }
 
