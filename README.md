@@ -502,9 +502,18 @@ Ejemplo JSON:
 mvn clean install
 ```
 
-Ejecutamos la aplicacion en local 
-- Expón documentación automática en `/swagger-ui.html`.  
-- Anota endpoints con `@Operation` y `@ApiResponse`.
+Ejecutamos la aplicacion en local y accedemos a la documentacion desde el navegador con la URL :
+
+```bash
+    http://localhost:8081/swagger-ui/index.html
+```
+Se nos expone la documentación automática en `/swagger-ui.html`.  
+
+![](/images/swagger.png)
+
+![](/images/swagger_schema.png.png)
+
+ Anota endpoints con `@Operation` y `@ApiResponse`.
 
 ### 5. Filtros de *Blueprints*
 - Implementa filtros:
