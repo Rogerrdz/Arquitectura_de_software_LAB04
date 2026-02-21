@@ -756,11 +756,6 @@ En ell filtro deafult agregamos lo siguiente para cuando no sea 'redundancy' o '
 ```bash
 @Profile("!redundancy & !undersampling")
 ```
-robamos el funcionamiento llamando a un endpoint desde el navegador :
-
-```bash
-http://localhost:8081/api/v1/blueprints/autor1/plano1
-```
 
 ---
 
