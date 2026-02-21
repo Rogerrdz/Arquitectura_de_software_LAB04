@@ -511,15 +511,251 @@ Se nos expone la documentación automática en `/swagger-ui.html`.
 
 ![](/images/swagger.png)
 
-![](/images/swagger_schema.png.png)
+![](/images/swagger_schema.png)
 
  Anota endpoints con `@Operation` y `@ApiResponse`.
+
+ Para esto importamos :
+
+```java
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+```
+
+Agregamos las anotaciones a los end points:
+
+- getAll:
+
+```java
+@Operation(summary = "Get all blueprints",
+               description = "Returns all stored blueprints")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Blueprints retrieved successfully")
+    })
+    @GetMapping
+    public ResponseEntity<ApiResponse<Set<Blueprint>>> getAll() {
+        return ResponseEntity.ok(
+                new ApiResponse<>(200, "Execute ok", services.getAllBlueprints()));
+    }
+```
+
+Así se veria :
+
+![](/images/GET_ALL.png)
+---
+- byAuthor
+
+```java  
+@Operation(summary = "Get blueprints by author",
+               description = "Returns all blueprints of a given author")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Blueprints found"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Blueprint not found")
+    })
+    @GetMapping("/{author}")
+    public ResponseEntity<?> byAuthor(@PathVariable String author) {
+        try {
+            return ResponseEntity.ok(
+                    new ApiResponse<>(200, "Success",
+                            services.getBlueprintsByAuthor(author)));
+        } catch (BlueprintNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(404,
+                            "Blueprint not found for author: " + author, null));
+        }
+    }
+```
+Así se veria:
+
+![](/images/GET_AUTHOR.png)
+---
+
+- byAuthorAndName:
+
+```java
+@Operation(summary = "Get blueprint by author and name",
+               description = "Returns a specific blueprint")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Blueprint found"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Blueprint not found")
+    })
+    @GetMapping("/{author}/{bpname}")
+    public ResponseEntity<?> byAuthorAndName(@PathVariable String author,
+                                             @PathVariable String bpname) {
+        try {
+            return ResponseEntity.ok(
+                    new ApiResponse<>(200, "Success",
+                            services.getBlueprint(author, bpname)));
+        } catch (BlueprintNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(404,
+                            "Blueprint not found for author: " + author +
+                                    " and name: " + bpname, null));
+        }
+    }
+```
+Así se veria:
+
+![](/images/GET_AUTHOR_NAME.png)
+---
+
+- add:
+
+```java
+@Operation(summary = "Create a new blueprint",
+               description = "Creates and stores a new blueprint")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Blueprint created"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid data")
+    })
+    @PostMapping
+    public ResponseEntity<?> add(@Valid @RequestBody NewBlueprintRequest req) {
+        try {
+            Blueprint bp = new Blueprint(req.author(), req.name(), req.points());
+            services.addNewBlueprint(bp);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(new ApiResponse<>(201, "Blueprint created", null));
+        } catch (BlueprintPersistenceException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiResponse<>(400, "Invalid Data", null));
+        }
+    }
+```
+Así se veria:
+
+![](/images/POST.png)
+---
+
+- addPoint :
+
+```java
+
+    @Operation(summary = "Add point to blueprint",
+               description = "Adds a point to an existing blueprint")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "202", description = "Point added"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Blueprint not found")
+    })
+    @PutMapping("/{author}/{bpname}/points")
+    public ResponseEntity<?> addPoint(@PathVariable String author,
+                                      @PathVariable String bpname,
+                                      @RequestBody Point p) {
+        try {
+            services.addPoint(author, bpname, p.x(), p.y());
+            return ResponseEntity.status(HttpStatus.ACCEPTED)
+                    .body(new ApiResponse<>(202, "Point added", null));
+        } catch (BlueprintNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(404, "Blueprint not found", null));
+        }
+    }
+```
+Así se veria:
+
+![](/images/PUT.png)
+---
+
 
 ### 5. Filtros de *Blueprints*
 - Implementa filtros:
   - **RedundancyFilter**: elimina puntos duplicados consecutivos.  
   - **UndersamplingFilter**: conserva 1 de cada 2 puntos.  
 - Activa los filtros mediante perfiles de Spring (`redundancy`, `undersampling`).  
+  
+Para esto creamos la interfaz del filtro:
+
+```java
+package edu.eci.arsw.blueprints.services;
+
+import edu.eci.arsw.blueprints.model.Blueprint;
+
+public interface BlueprintFilter {
+    Blueprint filter(Blueprint blueprint);
+
+```
+
+Creamos la clase 'RedundancyFilter':
+
+```java
+package edu.eci.arsw.blueprints.filters;
+
+import edu.eci.arsw.blueprints.model.Blueprint;
+import edu.eci.arsw.blueprints.model.Point;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Elimina puntos consecutivos duplicados (x,y) para reducir redundancia.
+ * Perfil: "redundancy"
+ */
+@Component
+@Profile("redundancy")
+public class RedundancyFilter implements BlueprintsFilter {
+    @Override
+    public Blueprint apply(Blueprint bp) {
+        List<Point> in = bp.getPoints();
+        if (in.isEmpty()) return bp;
+        List<Point> out = new ArrayList<>();
+        Point prev = null;
+        for (Point p : in) {
+            if (prev == null || !(prev.x()==p.x() && prev.y()==p.y())) {
+                out.add(p);
+                prev = p;
+            }
+        }
+        return new Blueprint(bp.getAuthor(), bp.getName(), out);
+    }
+}
+
+```
+
+Creamos la clase 'UndersamplingFiltrer':
+
+```java
+package edu.eci.arsw.blueprints.filters;
+
+import edu.eci.arsw.blueprints.model.Blueprint;
+import edu.eci.arsw.blueprints.model.Point;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Undersampling: conserva 1 de cada 2 puntos (índices pares), reduciendo la densidad.
+ * Perfil: "undersampling"
+ */
+@Component
+@Profile("undersampling")
+public class UndersamplingFilter implements BlueprintsFilter {
+    @Override
+    public Blueprint apply(Blueprint bp) {
+        List<Point> in = bp.getPoints();
+        if (in.size() <= 2) return bp;
+        List<Point> out = new ArrayList<>();
+        for (int i = 0; i < in.size(); i++) {
+            if (i % 2 == 0) out.add(in.get(i));
+        }
+        return new Blueprint(bp.getAuthor(), bp.getName(), out);
+    }
+}
+
+```
+Activamos los perfiles en 'application.properties':
+
+```bash
+spring.profiles.active=redundancy
+spring.profiles.active=undersampling
+```
+En ell filtro deafult agregamos lo siguiente para cuando no sea 'redundancy' o 'undersampling':
+
+```bash
+@Profile("!redundancy & !undersampling")
+```
 
 ---
 
